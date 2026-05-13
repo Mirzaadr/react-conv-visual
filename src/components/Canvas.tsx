@@ -187,6 +187,11 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
                       setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
                    }
                 }}
+                onTouchStart={() => {
+                   if (!isPadding) {
+                      setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
+                   }
+                }}
               />
             );
             

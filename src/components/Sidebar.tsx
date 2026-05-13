@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LayerConfig, LayerType, LayerMetrics } from '../lib/cnn';
-import { PlusCircle, Trash2, Settings2, GripVertical, ChevronRight, ChevronDown } from 'lucide-react';
+import { PlusCircle, Trash2, Settings2, GripVertical, ChevronRight, ChevronDown, RotateCcw } from 'lucide-react';
 
 interface SidebarProps {
   inputSize: number;
@@ -8,9 +8,10 @@ interface SidebarProps {
   layers: LayerConfig[];
   setLayers: (layers: LayerConfig[]) => void;
   metrics: LayerMetrics[];
+  onReset: () => void;
 }
 
-export default function Sidebar({ inputSize, setInputSize, layers, setLayers, metrics }: SidebarProps) {
+export default function Sidebar({ inputSize, setInputSize, layers, setLayers, metrics, onReset }: SidebarProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [collapsedLayers, setCollapsedLayers] = useState<Set<string>>(new Set());
 
@@ -74,13 +75,22 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
   };
 
   return (
-    <div className="w-80 h-full border-r border-slate-200 bg-white flex flex-col shadow-sm z-10 flex-shrink-0">
-      <div className="p-5 border-b border-slate-200">
-        <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-          <Settings2 className="w-5 h-5 text-indigo-600" />
-          Configurator
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">Design your CNN architecture</p>
+    <div className="w-full h-full border-r border-slate-200 bg-white flex flex-col shadow-sm flex-shrink-0">
+      <div className="p-5 border-b border-slate-200 flex justify-between items-start">
+        <div>
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-indigo-600" />
+            Configurator
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">Design your CNN architecture</p>
+        </div>
+        <button 
+          onClick={onReset}
+          title="Reset to default configuration"
+          className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-800 transition-colors"
+        >
+          <RotateCcw className="w-4 h-4" />
+        </button>
       </div>
       
       <div className="flex-1 overflow-auto p-5 space-y-6">
