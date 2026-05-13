@@ -1,0 +1,6 @@
+{
+  "name": "CNN Receptive Field Visualizer",
+  "description": "Visualize progressive receptive fields, padding, limits, and layer-by-layer connections in CNNs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
