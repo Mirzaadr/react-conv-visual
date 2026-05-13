@@ -91,8 +91,12 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
           <input 
             type="number" 
             min="1" 
+            max="256"
             value={inputSize} 
-            onChange={(e) => setInputSize(parseInt(e.target.value) || 1)}
+            onChange={(e) => {
+              const val = parseInt(e.target.value);
+              setInputSize(isNaN(val) ? 1 : Math.min(256, Math.max(1, val)));
+            }}
             className="w-full bg-white border border-slate-300 rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           />
         </div>
@@ -143,32 +147,44 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
                     <div className="flex flex-col">
                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1">Kernel (k)</label>
                       <input 
-                        type="number" min="1" value={layer.k}
-                        onChange={e => updateLayer(i, 'k', parseInt(e.target.value) || 1)}
+                        type="number" min="1" max="32" value={layer.k}
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          updateLayer(i, 'k', isNaN(val) ? 1 : Math.min(32, Math.max(1, val)));
+                        }}
                         className="border border-slate-200 rounded px-2 py-1 text-sm outline-none focus:border-indigo-400"
                       />
                     </div>
                     <div className="flex flex-col">
                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1">Stride (s)</label>
                       <input 
-                        type="number" min="1" value={layer.s}
-                        onChange={e => updateLayer(i, 's', parseInt(e.target.value) || 1)}
+                        type="number" min="1" max="32" value={layer.s}
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          updateLayer(i, 's', isNaN(val) ? 1 : Math.min(32, Math.max(1, val)));
+                        }}
                         className="border border-slate-200 rounded px-2 py-1 text-sm outline-none focus:border-indigo-400"
                       />
                     </div>
                     <div className="flex flex-col">
                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1">Padding (p)</label>
                       <input 
-                        type="number" min="0" value={layer.p}
-                        onChange={e => updateLayer(i, 'p', parseInt(e.target.value) || 0)}
+                        type="number" min="0" max="32" value={layer.p}
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          updateLayer(i, 'p', isNaN(val) ? 0 : Math.min(32, Math.max(0, val)));
+                        }}
                         className="border border-slate-200 rounded px-2 py-1 text-sm outline-none focus:border-indigo-400"
                       />
                     </div>
                     <div className="flex flex-col">
                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1">Dilation (d)</label>
                       <input 
-                        type="number" min="1" value={layer.d}
-                        onChange={e => updateLayer(i, 'd', parseInt(e.target.value) || 1)}
+                        type="number" min="1" max="32" value={layer.d}
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          updateLayer(i, 'd', isNaN(val) ? 1 : Math.min(32, Math.max(1, val)));
+                        }}
                         className="border border-slate-200 rounded px-2 py-1 text-sm outline-none focus:border-indigo-400"
                       />
                     </div>

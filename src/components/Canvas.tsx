@@ -2,12 +2,7 @@ import React, { useMemo } from 'react';
 import { LayerConfig, LayerMetrics, HoverMapResult } from '../lib/cnn';
 import { cn } from '../lib/utils';
 
-// Geometric Constants
-const CELL_W = 28;
-const CELL_H = 34;
-const ROW_GAP = 120;
-const CANVAS_PAD = 120;
-
+// CanvasProps and imports
 interface CanvasProps {
   inputSize: number;
   layers: LayerConfig[];
@@ -43,17 +38,38 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
       };
     });
 
-    const maxRowWidth = maxPaddedSize * CELL_W;
-    const svgW = Math.max(800, maxRowWidth + CANVAS_PAD * 2);
-    const svgH = rowInfo.length * CELL_H + (rowInfo.length - 1) * ROW_GAP + CANVAS_PAD * 2;
+    let cellW = 28;
+    let cellH = 34;
+    let rowGap = 120;
+    let canvasPad = 120;
+    let simplify = false;
+
+    if (maxPaddedSize > 128) {
+      cellW = 4;
+      cellH = 10;
+      rowGap = 60;
+      simplify = true;
+    } else if (maxPaddedSize > 64) {
+      cellW = 10;
+      cellH = 18;
+      rowGap = 80;
+    } else if (maxPaddedSize > 32) {
+      cellW = 18;
+      cellH = 24;
+      rowGap = 100;
+    }
+
+    const maxRowWidth = maxPaddedSize * cellW;
+    const svgW = Math.max(800, maxRowWidth + canvasPad * 2);
+    const svgH = rowInfo.length * cellH + (rowInfo.length - 1) * rowGap + canvasPad * 2;
     
-    return { rowInfo, svgW, svgH };
+    return { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify };
   }, [inputSize, layers, metrics]);
 
-  const { rowInfo, svgW, svgH } = svgMetrics;
+  const { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify } = svgMetrics;
 
-  const getRowStartX = (paddedSize: number) => svgW / 2 - (paddedSize * CELL_W) / 2;
-  const getRowY = (rowIndex: number) => CANVAS_PAD + rowIndex * (CELL_H + ROW_GAP);
+  const getRowStartX = (paddedSize: number) => svgW / 2 - (paddedSize * cellW) / 2;
+  const getRowY = (rowIndex: number) => canvasPad + rowIndex * (cellH + rowGap);
   
   const hasHover = Object.keys(hoverMap.real).length > 0;
 
@@ -71,7 +87,7 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
           const rowTo = rowInfo[i + 1];
           const startX_From = getRowStartX(rowFrom.paddedSize);
           const startX_To = getRowStartX(rowTo.paddedSize);
-          const yFrom = getRowY(i) + CELL_H;
+          const yFrom = getRowY(i) + cellH;
           const yTo = getRowY(i + 1);
 
           const paths = [];
@@ -80,13 +96,13 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             const leftPaddedIdx = n * layer.s;
             const rightPaddedIdx = n * layer.s + metrics[i].keff - 1;
             
-            const pxFromL = startX_From + leftPaddedIdx * CELL_W;
-            const pxFromR = startX_From + (rightPaddedIdx + 1) * CELL_W;
+            const pxFromL = startX_From + leftPaddedIdx * cellW;
+            const pxFromR = startX_From + (rightPaddedIdx + 1) * cellW;
             
             // To row is real cells, but it might have padding itself for the NEXT layer.
             // The real cells start AFTER its own padding (`rowTo.p`).
-            const pxToL = startX_To + (rowTo.p + n) * CELL_W;
-            const pxToR = pxToL + CELL_W;
+            const pxToL = startX_To + (rowTo.p + n) * cellW;
+            const pxToR = pxToL + cellW;
 
             const isActive = hoverMap.real[i + 1] ? hoverMap.real[i + 1].includes(n) : false;
             
@@ -98,12 +114,12 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             const isFaded = hasHover && !isActive;
 
             const d = `M ${pxToL} ${yTo} 
-                       C ${pxToL} ${yTo - ROW_GAP * 0.4}, 
-                         ${pxFromL} ${yFrom + ROW_GAP * 0.4}, 
+                       C ${pxToL} ${yTo - rowGap * 0.4}, 
+                         ${pxFromL} ${yFrom + rowGap * 0.4}, 
                          ${pxFromL} ${yFrom} 
                        L ${pxFromR} ${yFrom} 
-                       C ${pxFromR} ${yFrom + ROW_GAP * 0.4}, 
-                         ${pxToR} ${yTo - ROW_GAP * 0.4}, 
+                       C ${pxFromR} ${yFrom + rowGap * 0.4}, 
+                         ${pxToR} ${yTo - rowGap * 0.4}, 
                          ${pxToR} ${yTo} Z`;
 
             paths.push(
@@ -140,7 +156,7 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             
             if (isPadding) {
               fill = "#f8fafc"; // slate-50
-              strokeDasharray = "4 4";
+              strokeDasharray = simplify ? "none" : "4 4";
             }
             
             if (isActive) {
@@ -156,14 +172,14 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             cells.push(
               <rect
                 key={c}
-                x={startX + c * CELL_W}
+                x={startX + c * cellW}
                 y={y}
-                width={CELL_W}
-                height={CELL_H}
+                width={cellW}
+                height={cellH}
                 fill={fill}
-                stroke={stroke}
+                stroke={simplify ? "transparent" : stroke}
                 strokeDasharray={strokeDasharray}
-                strokeWidth={isActive ? 2 : 1}
+                strokeWidth={simplify ? 0 : (isActive ? 2 : 1)}
                 className="transition-all duration-150 cursor-pointer"
                 style={{ opacity: isFaded ? 0.4 : 1 }}
                 onMouseEnter={() => {
@@ -175,12 +191,12 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             );
             
             // Add a subtle P for padding if active or just normally
-            if (isPadding && !isFaded) {
+            if (isPadding && !isFaded && !simplify) {
                cells.push(
                  <text
                    key={`p-${c}`}
-                   x={startX + c * CELL_W + CELL_W / 2}
-                   y={y + CELL_H / 2}
+                   x={startX + c * cellW + cellW / 2}
+                   y={y + cellH / 2}
                    dominantBaseline="middle"
                    textAnchor="middle"
                    className="text-[10px] font-bold fill-slate-300 pointer-events-none"
@@ -196,7 +212,7 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
               {/* Row Label */}
               <text 
                 x={120} 
-                y={y + CELL_H / 2} 
+                y={y + cellH / 2} 
                 dominantBaseline="middle"
                 className="text-sm font-semibold fill-slate-700 uppercase tracking-wider"
               >
@@ -204,7 +220,7 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
               </text>
               <text 
                 x={120} 
-                y={y + CELL_H / 2 + 18} 
+                y={y + cellH / 2 + 18} 
                 dominantBaseline="middle"
                 className="text-xs font-medium fill-slate-400"
               >
@@ -223,8 +239,8 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
            
            const row0 = rowInfo[0];
            const startX = getRowStartX(row0.paddedSize);
-           const pxStart = startX + (row0.p + minIdx) * CELL_W;
-           const pxEnd = startX + (row0.p + maxIdx + 1) * CELL_W;
+           const pxStart = startX + (row0.p + minIdx) * cellW;
+           const pxEnd = startX + (row0.p + maxIdx + 1) * cellW;
            const y = getRowY(0) - 10;
            
            return (
@@ -246,8 +262,8 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
            const center = metric ? metric.start + hoveredNeuron.cell * metric.j : hoveredNeuron.cell + 0.5;
            
            const startX = getRowStartX(row.paddedSize);
-           const cx = startX + (row.p + hoveredNeuron.cell) * CELL_W + CELL_W / 2;
-           const cy = getRowY(row.rowIndex) + CELL_H + 15;
+           const cx = startX + (row.p + hoveredNeuron.cell) * cellW + cellW / 2;
+           const cy = getRowY(row.rowIndex) + cellH + 15;
            
            return (
              <g className="pointer-events-none transition-all duration-150">
