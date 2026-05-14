@@ -1,4 +1,4 @@
-export type LayerType = 'Conv2D' | 'MaxPool2D' | 'AvgPool2D';
+export type LayerType = 'Conv2D' | 'MaxPool2D' | 'AvgPool2D' | 'ReLU' | 'Identity' | 'BatchNorm2D';
 
 export interface LayerConfig {
   id: string;

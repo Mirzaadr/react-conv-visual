@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { LayerConfig, LayerMetrics, HoverMapResult } from '../lib/cnn';
 import { cn } from '../lib/utils';
 
@@ -13,6 +13,16 @@ interface CanvasProps {
 }
 
 export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNeuron, setHoveredNeuron }: CanvasProps) {
+  const [foldedRows, setFoldedRows] = useState<Set<number>>(new Set());
+
+  const toggleFold = (rowIndex: number) => {
+    setFoldedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(rowIndex)) next.delete(rowIndex);
+      else next.add(rowIndex);
+      return next;
+    });
+  };
   
   // Calculate rendering widths and SVG size
   const svgMetrics = useMemo(() => {
@@ -59,35 +69,48 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
       rowGap = 100;
     }
 
-    const maxRowWidth = maxPaddedSize * cellW;
-    const svgW = Math.max(800, maxRowWidth + canvasPad * 2);
-    const svgH = rowInfo.length * cellH + (rowInfo.length - 1) * rowGap + canvasPad * 2;
-    
-    return { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify };
-  }, [inputSize, layers, metrics]);
+    const dynamicY: number[] = [];
+    let currentY = canvasPad;
+    for (let i = 0; i < rowInfo.length; i++) {
+      dynamicY.push(currentY);
+      const isFolded = foldedRows.has(i);
+      const currentCellH = isFolded ? 20 : cellH;
+      currentY += currentCellH + rowGap;
+    }
 
-  const { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify } = svgMetrics;
+    const maxRowWidth = maxPaddedSize * cellW;
+    const svgW = Math.max(500, maxRowWidth + canvasPad * 2);
+    const svgH = currentY - rowGap + canvasPad;
+    
+    return { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify, dynamicY };
+  }, [inputSize, layers, metrics, foldedRows]);
+
+  const { rowInfo, svgW, svgH, cellW, cellH, rowGap, canvasPad, simplify, dynamicY } = svgMetrics;
 
   const getRowStartX = (paddedSize: number) => svgW / 2 - (paddedSize * cellW) / 2;
-  const getRowY = (rowIndex: number) => canvasPad + rowIndex * (cellH + rowGap);
+  const getRowY = (rowIndex: number) => dynamicY[rowIndex];
   
   const hasHover = Object.keys(hoverMap.real).length > 0;
 
   return (
-    <div className="w-full h-full overflow-auto">
+    <div className="w-full h-full overflow-auto p-4 md:p-8 flex justify-center md:justify-start">
       <svg 
         width={svgW} 
         height={svgH} 
-        className="block min-w-full"
+        viewBox={`0 0 ${svgW} ${svgH}`}
+        className="block max-w-full h-auto md:max-w-none"
         onMouseLeave={() => setHoveredNeuron(null)}
       >
         {/* Draw Connections */}
         {layers.map((layer, i) => {
           const rowFrom = rowInfo[i];
           const rowTo = rowInfo[i + 1];
+          const isFromFolded = foldedRows.has(rowFrom.rowIndex);
+          const isToFolded = foldedRows.has(rowTo.rowIndex);
+          
           const startX_From = getRowStartX(rowFrom.paddedSize);
           const startX_To = getRowStartX(rowTo.paddedSize);
-          const yFrom = getRowY(i) + cellH;
+          const yFrom = getRowY(i) + (isFromFolded ? 20 : cellH);
           const yTo = getRowY(i + 1);
 
           const paths = [];
@@ -105,6 +128,8 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
             const pxToR = pxToL + cellW;
 
             const isActive = hoverMap.real[i + 1] ? hoverMap.real[i + 1].includes(n) : false;
+            
+            if ((isFromFolded || isToFolded) && !isActive) continue;
             
             const isPool = layer.type.includes('Pool');
             const defaultColor = isPool ? "rgba(34, 197, 94, 0.05)" : "rgba(59, 130, 246, 0.05)";
@@ -142,95 +167,151 @@ export default function Canvas({ inputSize, layers, metrics, hoverMap, hoveredNe
         {rowInfo.map((row) => {
           const startX = getRowStartX(row.paddedSize);
           const y = getRowY(row.rowIndex);
+          const isFolded = foldedRows.has(row.rowIndex);
+          const currentCellH = isFolded ? 20 : cellH;
           
           const cells = [];
-          for (let c = 0; c < row.paddedSize; c++) {
-            const isPadding = c < row.p || c >= row.p + row.realSize;
-            
-            const isActive = hoverMap.padded[row.rowIndex] ? hoverMap.padded[row.rowIndex].includes(c) : false;
-            const isFaded = hasHover && !isActive;
-            
-            let fill = "white";
-            let stroke = "#cbd5e1"; // slate-300
-            let strokeDasharray = "none";
-            
-            if (isPadding) {
-              fill = "#f8fafc"; // slate-50
-              strokeDasharray = simplify ? "none" : "4 4";
-            }
-            
-            if (isActive) {
-               if (isPadding) {
-                 fill = "#e0e7ff"; // indigo-100
-                 stroke = "#6366f1"; // indigo-500
-               } else {
-                 fill = "#bfdbfe"; // blue-200
-                 stroke = "#2563eb"; // blue-600
-               }
-            }
-            
-            cells.push(
-              <rect
-                key={c}
-                x={startX + c * cellW}
-                y={y}
-                width={cellW}
-                height={cellH}
-                fill={fill}
-                stroke={simplify ? "transparent" : stroke}
-                strokeDasharray={strokeDasharray}
-                strokeWidth={simplify ? 0 : (isActive ? 2 : 1)}
-                className="transition-all duration-150 cursor-pointer"
-                style={{ opacity: isFaded ? 0.4 : 1 }}
-                onMouseEnter={() => {
-                   if (!isPadding) {
-                      setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
-                   }
-                }}
-                onTouchStart={() => {
-                   if (!isPadding) {
-                      setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
-                   }
-                }}
-              />
-            );
-            
-            // Add a subtle P for padding if active or just normally
-            if (isPadding && !isFaded && !simplify) {
+          if (isFolded) {
+             const isActiveRow = hoverMap.real[row.rowIndex] && hoverMap.real[row.rowIndex].length > 0;
+             const isFaded = hasHover && !isActiveRow;
+             
+             cells.push(
+               <rect
+                 key="folded"
+                 x={startX}
+                 y={y}
+                 width={row.paddedSize * cellW}
+                 height={currentCellH}
+                 fill={isActiveRow ? "#e0e7ff" : "#f1f5f9"}
+                 stroke={isActiveRow ? "#6366f1" : "#cbd5e1"}
+                 strokeWidth={isActiveRow ? 2 : 1}
+                 strokeDasharray="4 4"
+                 rx={4}
+                 className="transition-all duration-150"
+                 style={{ opacity: isFaded ? 0.4 : 1 }}
+               />
+             );
+             
+             if (!simplify) {
                cells.push(
                  <text
-                   key={`p-${c}`}
-                   x={startX + c * cellW + cellW / 2}
-                   y={y + cellH / 2}
+                   key="folded-text"
+                   x={startX + (row.paddedSize * cellW) / 2}
+                   y={y + currentCellH / 2 + 1}
                    dominantBaseline="middle"
                    textAnchor="middle"
-                   className="text-[10px] font-bold fill-slate-300 pointer-events-none"
+                   className="text-[10px] font-bold fill-slate-400 pointer-events-none tracking-widest"
                  >
-                   P
+                   COLLAPSED
                  </text>
-               )
+               );
+             }
+          } else {
+            for (let c = 0; c < row.paddedSize; c++) {
+              const isPadding = c < row.p || c >= row.p + row.realSize;
+              
+              const isActive = hoverMap.padded[row.rowIndex] ? hoverMap.padded[row.rowIndex].includes(c) : false;
+              const isFaded = hasHover && !isActive;
+              
+              let fill = "white";
+              let stroke = "#cbd5e1"; // slate-300
+              let strokeDasharray = "none";
+              
+              if (isPadding) {
+                fill = "#f8fafc"; // slate-50
+                strokeDasharray = simplify ? "none" : "4 4";
+              }
+              
+              if (isActive) {
+                 if (isPadding) {
+                   fill = "#e0e7ff"; // indigo-100
+                   stroke = "#6366f1"; // indigo-500
+                 } else {
+                   fill = "#bfdbfe"; // blue-200
+                   stroke = "#2563eb"; // blue-600
+                 }
+              }
+              
+              cells.push(
+                <rect
+                  key={c}
+                  x={startX + c * cellW}
+                  y={y}
+                  width={cellW}
+                  height={cellH}
+                  fill={fill}
+                  stroke={simplify ? "transparent" : stroke}
+                  strokeDasharray={strokeDasharray}
+                  strokeWidth={simplify ? 0 : (isActive ? 2 : 1)}
+                  className="transition-all duration-150 cursor-pointer"
+                  style={{ opacity: isFaded ? 0.4 : 1 }}
+                  onMouseEnter={() => {
+                     if (!isPadding) {
+                        setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
+                     }
+                  }}
+                  onTouchStart={() => {
+                     if (!isPadding) {
+                        setHoveredNeuron({ row: row.rowIndex, cell: c - row.p });
+                     }
+                  }}
+                />
+              );
+              
+              // Add a subtle P for padding if active or just normally
+              if (isPadding && !isFaded && !simplify) {
+                 cells.push(
+                   <text
+                     key={`p-${c}`}
+                     x={startX + c * cellW + cellW / 2}
+                     y={y + cellH / 2}
+                     dominantBaseline="middle"
+                     textAnchor="middle"
+                     className="text-[10px] font-bold fill-slate-300 pointer-events-none"
+                   >
+                     P
+                   </text>
+                 )
+              }
             }
           }
           
           return (
             <g key={`row-${row.rowIndex}`}>
               {/* Row Label */}
-              <text 
-                x={120} 
-                y={y + cellH / 2} 
-                dominantBaseline="middle"
-                className="text-sm font-semibold fill-slate-700 uppercase tracking-wider"
+              <g 
+                transform={`translate(60, ${y + currentCellH / 2 - 20})`} 
+                className="cursor-pointer group"
+                onClick={() => toggleFold(row.rowIndex)}
               >
-                {row.rowIndex === 0 ? 'Input' : `${layers[row.rowIndex - 1].type}`}
-              </text>
-              <text 
-                x={120} 
-                y={y + cellH / 2 + 18} 
-                dominantBaseline="middle"
-                className="text-xs font-medium fill-slate-400"
-              >
-                Size: {row.realSize}
-              </text>
+                <rect x={-20} y={0} width={160} height={40} fill="transparent" />
+                <g transform="translate(0, 4)">
+                  <circle cx="12" cy="12" r="14" fill="#f8fafc" className="group-hover:fill-indigo-50 transition-colors" />
+                  <svg x="2" y="2" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    {isFolded ? (
+                      <path d="m9 18 6-6-6-6" />
+                    ) : (
+                      <path d="m6 9 6 6 6-6" />
+                    )}
+                  </svg>
+                </g>
+                <text 
+                  x={36} 
+                  y={12} 
+                  dominantBaseline="middle"
+                  className="text-sm font-semibold fill-slate-700 uppercase tracking-wider group-hover:fill-indigo-600 transition-colors"
+                >
+                  {row.rowIndex === 0 ? 'Input' : `${layers[row.rowIndex - 1].type}`}
+                </text>
+                <text 
+                  x={36} 
+                  y={30} 
+                  dominantBaseline="middle"
+                  className="text-xs font-medium fill-slate-400 group-hover:fill-indigo-400 transition-colors"
+                >
+                  Size: {row.realSize}
+                </text>
+              </g>
               
               {cells}
             </g>

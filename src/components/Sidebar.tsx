@@ -1,6 +1,15 @@
 import React, { useState } from 'react';
 import { LayerConfig, LayerType, LayerMetrics } from '../lib/cnn';
-import { PlusCircle, Trash2, Settings2, GripVertical, ChevronRight, ChevronDown, RotateCcw } from 'lucide-react';
+import { PlusCircle, Trash2, Settings2, GripVertical, ChevronRight, ChevronDown, RotateCcw, Info } from 'lucide-react';
+
+const LAYER_INFO: Record<LayerType, string> = {
+  Conv2D: "Applies a 2D convolution over an input signal. Extracts features using learnable filters.",
+  MaxPool2D: "Applies a 2D max pooling. Downsamples by taking the max value over a spatial window.",
+  AvgPool2D: "Applies a 2D average pooling. Downsamples by taking the avg value over a spatial window.",
+  ReLU: "Applies the rectified linear unit activation function. Does not affect spatial dimensions.",
+  Identity: "Passes the input unchanged. Acts as a skip connection.",
+  BatchNorm2D: "Normalizes the output of the previous layer. Does not affect spatial dimensions."
+};
 
 interface SidebarProps {
   inputSize: number;
@@ -14,14 +23,16 @@ interface SidebarProps {
 export default function Sidebar({ inputSize, setInputSize, layers, setLayers, metrics, onReset }: SidebarProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [collapsedLayers, setCollapsedLayers] = useState<Set<string>>(new Set());
+  const [selectedNewType, setSelectedNewType] = useState<LayerType>('Conv2D');
 
   const addLayer = (type: LayerType) => {
     const newId = Math.random().toString(36).substring(7);
+    const isSpatial = type === 'Conv2D' || type === 'MaxPool2D' || type === 'AvgPool2D';
     const newLayer: LayerConfig = {
       id: newId,
       type,
-      k: type === 'Conv2D' ? 3 : 2,
-      s: type === 'Conv2D' ? 1 : 2,
+      k: isSpatial ? (type === 'Conv2D' ? 3 : 2) : 1,
+      s: isSpatial ? (type === 'Conv2D' ? 1 : 2) : 1,
       p: 0,
       d: 1,
     };
@@ -127,10 +138,10 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
               onDragOver={(e) => handleDragOver(e, i)}
               onDrop={(e) => handleDrop(e, i)}
               onDragEnd={handleDragEnd}
-              className={`border border-slate-200 rounded-lg bg-white overflow-hidden shadow-sm transition-opacity ${draggedIndex === i ? 'opacity-50' : 'opacity-100'}`}
+              className={`border border-slate-200 rounded-lg bg-white relative hover:z-50 shadow-sm transition-opacity ${draggedIndex === i ? 'opacity-50' : 'opacity-100'}`}
             >
               <div 
-                className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center cursor-move"
+                className="bg-slate-50 rounded-t-lg px-3 py-2 border-b border-slate-200 flex justify-between items-center cursor-move"
                 onClick={(e) => toggleCollapse(e, layer.id)}
               >
                 <div className="flex items-center gap-1">
@@ -139,6 +150,13 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
                     {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
                   <span className="font-semibold text-sm text-slate-800 select-none ml-1">{i + 1}. {layer.type}</span>
+                  <div className="relative ml-1 flex items-center group">
+                    <Info className="w-3.5 h-3.5 text-slate-400 hover:text-indigo-500 cursor-help" />
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 p-2 bg-slate-800 text-white text-xs font-normal normal-case rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl">
+                      {LAYER_INFO[layer.type]}
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-b-slate-800"></div>
+                    </div>
+                  </div>
                 </div>
                 <button 
                   onClick={(e) => {
@@ -153,6 +171,11 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
               
               {!isCollapsed && (
                 <>
+                  {layer.type === 'ReLU' || layer.type === 'Identity' || layer.type === 'BatchNorm2D' ? (
+                    <div className="p-4 text-xs text-slate-500 text-center italic border-b border-slate-100">
+                      This layer operates element-wise and does not alter spatial dimensions.
+                    </div>
+                  ) : (
                   <div className="p-3 grid grid-cols-2 gap-3">
                     <div className="flex flex-col">
                       <label className="text-[10px] uppercase font-bold text-slate-400 mb-1">Kernel (k)</label>
@@ -199,10 +222,11 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
                       />
                     </div>
                   </div>
+                  )}
                   
                   {/* Metrics visualizer for this layer */}
                   {metrics[i] && (
-                    <div className="bg-indigo-50/50 p-3 border-t border-slate-200 grid grid-cols-2 gap-y-2 text-xs">
+                    <div className="bg-indigo-50/50 p-3 border-t border-slate-200 grid grid-cols-2 gap-y-2 text-xs rounded-b-lg">
                       <div className="text-slate-500 font-medium">Output: <span className="text-slate-900">{metrics[i].outSize}</span></div>
                       <div className="text-slate-500 font-medium">RF (r): <span className="text-slate-900">{metrics[i].r}</span></div>
                       <div className="text-slate-500 font-medium">Jump (j): <span className="text-slate-900">{metrics[i].j}</span></div>
@@ -220,24 +244,25 @@ export default function Sidebar({ inputSize, setInputSize, layers, setLayers, me
           
         </div>
 
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          <button 
-            onClick={() => addLayer('Conv2D')}
-            className="flex items-center justify-center gap-1 bg-white border border-slate-300 text-slate-700 py-2 rounded shadow-sm text-sm font-medium hover:bg-slate-50"
+        <div className="flex items-center gap-2 pt-4 mt-2 border-t border-slate-200">
+          <select 
+            value={selectedNewType}
+            onChange={(e) => setSelectedNewType(e.target.value as LayerType)}
+            className="flex-1 bg-white border border-slate-300 rounded-md px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
           >
-            <PlusCircle className="w-4 h-4" /> Conv
-          </button>
+            <option value="Conv2D">Conv2D</option>
+            <option value="MaxPool2D">MaxPool2D</option>
+            <option value="AvgPool2D">AvgPool2D</option>
+            <option value="BatchNorm2D">BatchNorm2D</option>
+            <option value="ReLU">ReLU</option>
+            <option value="Identity">Identity</option>
+          </select>
           <button 
-            onClick={() => addLayer('MaxPool2D')}
-            className="flex items-center justify-center gap-1 bg-white border border-slate-300 text-slate-700 py-2 rounded shadow-sm text-sm font-medium hover:bg-slate-50"
+            onClick={() => addLayer(selectedNewType)}
+            className="flex items-center justify-center bg-indigo-600 text-white p-2 rounded-md shadow-sm hover:bg-indigo-700 transition-colors"
+            title="Add Layer"
           >
-            <PlusCircle className="w-4 h-4" /> MaxP
-          </button>
-          <button 
-            onClick={() => addLayer('AvgPool2D')}
-            className="flex items-center justify-center gap-1 bg-white border border-slate-300 text-slate-700 py-2 rounded shadow-sm text-sm font-medium hover:bg-slate-50"
-          >
-            <PlusCircle className="w-4 h-4" /> AvgP
+            <PlusCircle className="w-5 h-5" />
           </button>
         </div>
 
