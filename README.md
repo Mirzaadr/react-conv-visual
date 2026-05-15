@@ -60,7 +60,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 ## Testing
 
-![Test Status](https://github.com/your-username/conv-visual/actions/workflows/test.yml/badge.svg)
+[![Test Status](https://github.com/mirzaadr/react-conv-visual/actions/workflows/test.yml/badge.svg)](https://github.com/mirzaadr/react-conv-visual/actions/workflows/test.yml)
 
 This project includes unit tests to ensure the reliability of its components and utilities. To run the tests, use the following command:
 
