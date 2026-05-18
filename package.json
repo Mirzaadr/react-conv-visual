@@ -1,8 +1,9 @@
 {
-  "name": "react-example",
+  "name": "react-conv-visual",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://mirzaadr.github.io/react-conv-visual",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
