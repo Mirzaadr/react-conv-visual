@@ -1,7 +1,7 @@
 # Convolutional Visualizer
 
-Convolutional Visualizer is a React-based web application designed to help users understand and visualize the inner workings of convolutional neural networks (CNNs). This tool provides an interactive interface to explore how CNNs process data, making it an excellent resource for students, educators, and machine learning enthusiasts.
-
+Convolutional Visualizer is a React-based web application designed to help users understand and visualize the inner workings of convolutional neural networks (CNNs). This tool provides an interactive interface to explore how CNNs process data, making it an excellent resource for students, educators, and machine learning enthusiasts.  
+[Link](https://mirzaadr.github.io/react-conv-visual/)
 ## Features
 
 - **Interactive Canvas**: Visualize convolution operations step-by-step.
